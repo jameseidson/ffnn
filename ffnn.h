@@ -4,16 +4,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
+#include <assert.h>
 
 typedef struct Weight Weight_T;
 typedef struct Neuron Neuron_T;
 typedef struct Layer Layer_T;
 typedef struct Net Net_T;
 
-Net_T *FF_initNet(size_t netSize, size_t *topology);
+typedef struct Data {
+    double *in;
+    double *expout;
+} Data_T;
 
-void FF_printNet(Net_T *net);
 
-void FF_freeNet(Net_T *net);
+Net_T *FFNN_init(size_t netSize, size_t *topology);
+void FFNN_free(Net_T *net);
+
+double *FFNN_feedForward(Net_T *net, double *inputs);
 
 #endif

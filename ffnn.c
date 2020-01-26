@@ -1,5 +1,8 @@
 #include "ffnn.h"
 
+double FFNN_sig(double x);
+void FFNN_print(Net_T *net);
+
 struct Net {
     size_t numLyr;
     Layer_T *layers;
@@ -21,35 +24,45 @@ struct Weight {
     Neuron_T *next;
 };
 
-Net_T *FF_initNet(size_t netSize, size_t *topology) {
+
+Net_T *FFNN_init(size_t netSize, size_t *topology) {
+    /* validate input */
+    assert(netSize != 0);
+    for(size_t i = 0; i < netSize; i++) {
+        assert(topology[i] != 0);
+    }
     srand(time(NULL));
     /* allocate and initialize a new network */
     Net_T *net = malloc(sizeof(Net_T));
+    assert(net != NULL);
     net->numLyr = netSize;
     net->layers = malloc(net->numLyr * sizeof(Layer_T));
+    assert(net->layers != NULL);
 
     /* allocate and initialize layers */
     for(size_t i = 0; i < netSize; i++) {
-        Layer_T *lyr_i = &net->layers[i];
-        lyr_i->numNrn = topology[i];
+        Layer_T *curLyr = &net->layers[i];
+        curLyr->numNrn = topology[i];
         /* add extra neuron in layer to be bias */
         if(i != netSize - 1) {
-            lyr_i->numNrn++;
+            curLyr->numNrn++;
         }
 
-        lyr_i->neurons = malloc(lyr_i->numNrn * sizeof(Neuron_T));
+        curLyr->neurons = malloc(curLyr->numNrn * sizeof(Neuron_T));
+        assert(curLyr->neurons != NULL);
     }
 
     /* allocate and initialize weights */
     for(size_t i = 0; i < netSize - 1; i++) {
         for(size_t j = 0; j < net->layers[i].numNrn; j++) {
-            Neuron_T *nrn_i = &net->layers[i].neurons[j];
-            nrn_i->numWgt = topology[i + 1];
-            nrn_i->weights = malloc(nrn_i->numWgt * sizeof(Weight_T));
+            Neuron_T *curNrn = &net->layers[i].neurons[j];
+            curNrn->numWgt = topology[i + 1];
+            curNrn->weights = malloc(curNrn->numWgt * sizeof(Weight_T));
+            assert(curNrn->weights != NULL);
             /* point kth weight in curr layer to kth neuron in next layer */
-            for(size_t k = 0; k < nrn_i->numWgt; k++) {
-                nrn_i->weights[k].next = &net->layers[i + 1].neurons[k];
-                nrn_i->weights[k].val = (double)rand() / RAND_MAX;
+            for(size_t k = 0; k < curNrn->numWgt; k++) {
+                curNrn->weights[k].next = &net->layers[i + 1].neurons[k];
+                curNrn->weights[k].val = (double)rand() / RAND_MAX;
             }
         }
     }
@@ -57,7 +70,56 @@ Net_T *FF_initNet(size_t netSize, size_t *topology) {
     return net;
 }
 
-void FF_printNet(Net_T *net) {
+/* undefined behavior if inputs is not the right size */
+double *FFNN_feedForward(Net_T *net, double *inputs) {
+    /* feed in input data */
+    for(size_t i = 0; i < net->layers[0].numNrn - 1; i++) {
+        net->layers[0].neurons[i].activ = inputs[i];
+    }
+
+    /* this loop order is best for runtime as sigmoid can be applied without
+       extra passthrough */
+    for(size_t i = 0; i < net->numLyr - 1; i++) {
+        for(size_t j = 0; j < net->layers[i].neurons[0].numWgt; j++) {
+            for(size_t k = 0; k < net->layers[i].numNrn; k++) {
+                Weight_T *curWgt = &net->layers[i].neurons[k].weights[j];
+                /* influence activation of next layer */
+                curWgt->next->activ += curWgt->val
+                                      * net->layers[i].neurons[k].activ;
+            }
+            Neuron_T *nxtLyrNrn = &net->layers[i + 1].neurons[j];
+            nxtLyrNrn->activ = FFNN_sig(nxtLyrNrn->activ);
+        }
+    }
+
+    /* copy and return outputs */
+    Layer_T *outLyr = &net->layers[net->numLyr - 1];
+
+    assert(outLyr->neurons != NULL);
+    double *outActiv = malloc(outLyr->numNrn * sizeof(double));
+    for(size_t i = 0; i < outLyr->numNrn; i++) {
+        outActiv[i] = outLyr->neurons[i].activ;
+    }
+
+    return outActiv;
+}
+
+void FFNN_free(Net_T *net) {
+    for(size_t i = 0; i < net->numLyr; i++) {
+        for(size_t j = 0; j < net->layers[i].numNrn; j++) {
+            free(net->layers[i].neurons[j].weights);
+        }
+        free(net->layers[i].neurons);
+    }
+    free(net->layers);
+    free(net);
+}
+
+double FFNN_sig(double x) {
+    return 1/(1 + exp(-x));
+}
+
+void FFNN_print(Net_T *net) {
     printf("%zu layer network:\n", net->numLyr);
     for(size_t i = 0; i < net->numLyr; i++) {
         printf("    layer %zu\n", i);
@@ -69,15 +131,4 @@ void FF_printNet(Net_T *net) {
         printf("\n");
         }
     }
-}
-
-void FF_freeNet(Net_T *net) {
-    for(size_t i = 0; i < net->numLyr; i++) {
-        for(size_t j = 0; j < net->layers[i].numNrn; j++) {
-            free(net->layers[i].neurons[j].weights);
-        }
-        free(net->layers[i].neurons);
-    }
-    free(net->layers);
-    free(net);
 }
