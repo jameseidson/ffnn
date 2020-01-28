@@ -29,8 +29,8 @@ ImageData_T readImg(Image_T *imgs, char *imgFile, char *lblFile) {
   /* open files */
   FILE *ifp = fopen(imgFile, "rb");
   FILE *lfp = fopen(lblFile, "rb");
-
   assert(ifp != NULL && lfp != NULL);
+
   /* ignore magic number */
   fseek(ifp, 4, SEEK_SET);
   fseek(lfp, 4, SEEK_SET);
@@ -51,7 +51,6 @@ ImageData_T readImg(Image_T *imgs, char *imgFile, char *lblFile) {
   fread(&(numLbl), sizeof(uint32_t), 1, lfp);
   flip_32(&(numLbl));
   size_t lblSize = sizeof(uint8_t);
-
   assert(numLbl == data.numImg);
 
   /* allocate images- their pixels and labels */
@@ -65,9 +64,13 @@ ImageData_T readImg(Image_T *imgs, char *imgFile, char *lblFile) {
   return data;
 }
 
-int main() {
+int main(int argc, char **argv) {
+  if(argc != 3) {
+    printf("Usage: %s [image file] [label file]\n", argv[0]);
+    return 1;
+  }
   Image_T *imgs = NULL;
-  readImg(imgs, "./mnist/train-images.idx3-ubyte", "./mnist/train-labels.idx1-ubyte");
+  readImg(imgs, argv[1], argv[2]);
 
   return 0;
 }

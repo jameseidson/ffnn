@@ -1,8 +1,6 @@
 #include "ffnn.h"
 
-double FFNN_sig(double x);
-void FFNN_print(Net_T *net);
-
+/* structures */
 struct Net {
   size_t numLyr;
   Layer_T *layers;
@@ -24,6 +22,19 @@ struct Weight {
   Neuron_T *next;
 };
 
+struct Data {
+  size_t size;
+  double **input;
+  double **expOut;
+};
+
+/* forward declarations */
+double FFNN_sig(double x);
+void FFNN_print(Net_T *net);
+/* returns cost */
+double FFNN_backprop(double *out, double *expOut);
+
+/* definitions */
 Net_T *FFNN_init(size_t netSize, size_t *topology) {
   /* validate input */
   assert(netSize != 0);
@@ -55,6 +66,7 @@ Net_T *FFNN_init(size_t netSize, size_t *topology) {
   for(size_t i = 0; i < netSize - 1; i++) {
     for(size_t j = 0; j < net->layers[i].numNrn; j++) {
       Neuron_T *curNrn = &net->layers[i].neurons[j];
+      curNrn->activ = 1;
       curNrn->numWgt = topology[i + 1];
       curNrn->weights = malloc(curNrn->numWgt * sizeof(Weight_T));
       assert(curNrn->weights != NULL);
@@ -75,9 +87,7 @@ double *FFNN_feedForward(Net_T *net, double *inputs) {
   for(size_t i = 0; i < net->layers[0].numNrn - 1; i++) {
     net->layers[0].neurons[i].activ = inputs[i];
   }
-
-  /* this loop order is best for runtime as sigmoid can be applied without
-     extra passthrough */
+  /* looping weights before neurons allows us to apply sigmoid each iter */
   for(size_t i = 0; i < net->numLyr - 1; i++) {
     for(size_t j = 0; j < net->layers[i].neurons[0].numWgt; j++) {
       for(size_t k = 0; k < net->layers[i].numNrn; k++) {
@@ -103,6 +113,17 @@ double *FFNN_feedForward(Net_T *net, double *inputs) {
   return outActiv;
 }
 
+void FFNN_train(Net_T *net, Data_T *data, size_t epoch) {
+  for(size_t i = 0; i < epoch; i++) {
+    double cost = 0;
+    for(size_t j = 0; j < data->size; j++) {
+      double *out = FFNN_feedForward(net, data->input[j]);
+      cost += FFNN_backprop(out, data->expOut[j]);
+    }
+    printf("Average cost of epoch %zu: %f\n", i, cost/data->size);
+  }
+}
+
 void FFNN_free(Net_T *net) {
   for(size_t i = 0; i < net->numLyr; i++) {
     for(size_t j = 0; j < net->layers[i].numNrn; j++) {
@@ -112,6 +133,15 @@ void FFNN_free(Net_T *net) {
   }
   free(net->layers);
   free(net);
+}
+
+double FFNN_backprop(double *out, double *expOut) {
+  (void)out;
+  (void)expOut;
+
+  /* TODO */
+
+  return 0;
 }
 
 double FFNN_sig(double x) {
