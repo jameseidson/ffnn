@@ -12,12 +12,6 @@ typedef struct Neuron Neuron_T;
 typedef struct Layer Layer_T;
 typedef struct Net Net_T;
 
-typedef struct Data {
-    double *in;
-    double *expout;
-} Data_T;
-
-
 Net_T *FFNN_init(size_t netSize, size_t *topology);
 void FFNN_free(Net_T *net);
 
