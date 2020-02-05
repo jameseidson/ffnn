@@ -1,5 +1,9 @@
 #include "ffnn.h"
 
+typedef struct Layer Layer_T;
+typedef struct Neuron Neuron_T;
+typedef struct Weight Weight_T;
+
 struct Net {
   size_t numLyr;
   Layer_T *layers;
@@ -22,9 +26,10 @@ struct Weight {
   Neuron_T *next;
 };
 
-double FFNN_backprop(Net_T *net, double *out, double *expOut);
-double FFNN_sig(double x);
-double FFNN_dsig(double x);
+
+double FFNN_backprop(Net_T *, const double *, const double *);
+double FFNN_sig(double);
+double FFNN_dsig(double);
 
 void FFNN_print(Net_T *net);
 
@@ -56,18 +61,25 @@ Net_T *FFNN_init(size_t netSize, size_t *topology) {
   }
 
   /* allocate and initialize weights */
-  for (size_t i = 0; i < netSize - 1; i++) {
+  for (size_t i = 0; i < netSize; i++) {
     for (size_t j = 0; j < net->layers[i].numNrn; j++) {
       Neuron_T *curNrn = &net->layers[i].neurons[j];
       curNrn->activ = 1.0;
       curNrn->curErr = 0.0;
-      curNrn->numWgt = topology[i + 1];
-      curNrn->weights = malloc(curNrn->numWgt * sizeof(Weight_T));
-      assert(curNrn->weights != NULL);
-      /* point kth weight in curr layer to kth neuron in next layer */
-      for (size_t k = 0; k < curNrn->numWgt; k++) {
-        curNrn->weights[k].next = &net->layers[i + 1].neurons[k];
-        curNrn->weights[k].val = (double)rand() / RAND_MAX;
+      if (i != netSize - 1) {
+        curNrn->numWgt = topology[i + 1];
+        curNrn->weights = malloc(curNrn->numWgt * sizeof(Weight_T));
+        assert(curNrn->weights != NULL);
+
+        /* point kth weight in curr layer to kth neuron in next layer */
+        for (size_t k = 0; k < curNrn->numWgt; k++) {
+          curNrn->weights[k].next = &net->layers[i + 1].neurons[k];
+          curNrn->weights[k].val = (double)rand() / RAND_MAX;
+        }
+      } else {
+        /* dont want to alloc weights in last layer */
+        curNrn->numWgt = 0;
+        curNrn->weights = NULL;
       }
     }
   }
@@ -102,17 +114,21 @@ void FFNN_feedForward(Net_T *net, double *in, double *out) {
   }
 }
 
-void FFNN_train(Net_T *net, double **in, double **expOut, size_t numElem,
-                size_t epoch) {
-  for (size_t i = 0; i < epoch; i++) {
-    double cost = 0;
-    for (size_t j = 0; j < numElem; j++) {
-      double *out = malloc(net->layers[net->numLyr - 1].numNrn * sizeof(double));
-      FFNN_feedForward(net, in[j], out);
-      cost += FFNN_backprop(net, out, expOut[j]);
+void FFNN_train(Net_T *net, TrainSet_T *tSet) {
+  size_t numEpch = tSet->numEpoch;
+  size_t numElm = tSet->numElm;
+  for (size_t i = 0; i < numEpch; i++) {
+    double cost = 0.0;
+    for (size_t j = 0; j < numElm; j++) {
+      double *out = malloc(net->layers[net->numLyr - 1].numNrn 
+                    * sizeof(double));
+      assert(out != NULL);
+      FFNN_feedForward(net, tSet->in[j], out);
+      cost += FFNN_backprop(net, out, tSet->expOut[i]);
+
       free(out);
     }
-    printf("Avg cost of epoch %zu/%zu: %.3f\n", i, epoch, cost/numElem);
+    printf("Avg cost of epoch %lu/%lu: %.3f\n", i, numEpch - 1, cost/numElm);
   }
 }
 
@@ -131,31 +147,30 @@ void FFNN_free(Net_T *net) {
 }
 
 
-double FFNN_backprop(Net_T *net, double *out, double *expOut) {
+double FFNN_backprop(Net_T *net, const double *out, const double *expOut) {
   /* calculate error of output layer */
-  Layer_T *lastLyr = &net->layers[net->numLyr - 1];
+  Layer_T *lastLyr = &net->layers[net->numLyr - 1]; /* causing invalid read */
   for (size_t i = 0; i < lastLyr->numNrn; i++) {
     lastLyr->neurons[i].curErr = pow(expOut[i] - out[i], 2);
   }
 
-  /* calculate error of each neuron */
+  /* calculate errors of other layers and adjust weights */
   for (size_t i = net->numLyr - 2; i > 0; i--) {
     for (size_t j = 0; j < net->layers[i].numNrn; j++) {
       Neuron_T *curNrn = &net->layers[i].neurons[j];
       for (size_t k = 0; k < curNrn->numWgt; k++) {
-
         Neuron_T *nxtNrn = curNrn->weights[k].next;
         Weight_T *wgtToNxt = &curNrn->weights[k];
-
+        /* do the math */
         curNrn->curErr = wgtToNxt->val * wgtToNxt->next->curErr;
-        curNrn->weights[k].val += FFNN_dsig(curNrn->activ) 
-                                * nxtNrn->activ * nxtNrn->curErr * -1;
+        curNrn->weights[k].val += -1 * FFNN_dsig(curNrn->activ) 
+                                * nxtNrn->activ * nxtNrn->curErr;
       }
     }
   }
 
   /* sum error of output layer */
-  double totalErr = 0;
+  double totalErr = 0.0;
   for (size_t i = 0; i < lastLyr->numNrn; i++) {
     totalErr += lastLyr->neurons[i].curErr;
   }
@@ -164,7 +179,7 @@ double FFNN_backprop(Net_T *net, double *out, double *expOut) {
 }
 
 double FFNN_sig(double x) {
-  return 1/(1 + exp(-x));
+  return 1.0/(1.0 + exp(-x));
 }
 
 double FFNN_dsig(double x) {
