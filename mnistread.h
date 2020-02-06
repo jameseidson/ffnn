@@ -20,7 +20,8 @@ typedef struct ImageData {
 } ImageData_T;
 
 ImageData_T MNIST_read(Image_T **imgs, char *imgFile, char *lblFile);
-TrainSet_T *MNIST_prep(ImageData_T *imgDat, Image_T *imgs, size_t numEpoch);
+TrainSet_T *MNIST_prep(ImageData_T *imgDat, Image_T *imgs, size_t numEpoch,
+                       size_t numToRead);
 void MNIST_printPrep(TrainSet_T *tSet, ImageData_T *imgDat);
 void MNIST_free(TrainSet_T *tSet, ImageData_T *imgDat, Image_T *imgs);
 

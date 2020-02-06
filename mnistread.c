@@ -29,7 +29,6 @@ ImageData_T MNIST_read(Image_T **imgs, char *imgFile, char *lblFile) {
   flip_32(&(numLbl));
   size_t lblSize = sizeof(uint8_t);
   assert(numLbl == data.numImg);
-
   /* allocate pixels and labels for each image */
   *imgs = malloc(data.numImg * sizeof(Image_T));
   assert(imgs != NULL);
@@ -51,14 +50,16 @@ ImageData_T MNIST_read(Image_T **imgs, char *imgFile, char *lblFile) {
   return data;
 }
 
-TrainSet_T *MNIST_prep(ImageData_T *imgDat, Image_T *imgs, size_t numEpoch) {
+TrainSet_T *MNIST_prep(ImageData_T *imgDat, Image_T *imgs, size_t numEpoch,
+                       size_t numToRead) {
   size_t numImg = imgDat->numImg;
+  size_t numPxl = imgDat->numRow * imgDat->numCol;
 
   TrainSet_T *tSet = malloc(sizeof(TrainSet_T));
   assert(tSet != NULL);
-  tSet->numElm = numImg;
+  tSet->numElm = (numToRead == 0) ? numImg : numToRead;
   tSet->numEpoch = numEpoch;
-  size_t numPxl = imgDat->numRow * imgDat->numCol;
+  tSet->learnRate = 0.2;
 
   tSet->in = malloc(numImg * sizeof(double *));
   tSet->expOut = malloc(numImg * sizeof(double *));
@@ -73,7 +74,7 @@ TrainSet_T *MNIST_prep(ImageData_T *imgDat, Image_T *imgs, size_t numEpoch) {
     }
 
     /* match labels to expected output layer format */
-    tSet->expOut[i] = calloc(10, sizeof(double)); /* being read invalid */
+    tSet->expOut[i] = calloc(10, sizeof(double));
     assert(tSet->expOut[i] != NULL);
 
     tSet->expOut[i][imgs[i].label] = 1.0; 
