@@ -31,7 +31,7 @@ void FFNN_gradDescent(Net_T *, double);
 double FFNN_sig(double);
 double FFNN_dsig(double);
 
-const uint32_t MAGICNUM = 0;
+const uint64_t MAGICNUM = 0x5CAFC570;
 
 Net_T *FFNN_init(size_t netSize, size_t *topology) {
   /* validate input */
@@ -83,53 +83,6 @@ Net_T *FFNN_init(size_t netSize, size_t *topology) {
       }
     }
   }
-
-  return net;
-}
-
-void FFNN_save(Net_T *net, char *netFile) {
-  FILE *nfp = fopen(netFile, "wb");
-  assert(nfp != NULL);
-
-  fwrite(&MAGICNUM, sizeof(MAGICNUM), 1, nfp);
-
-  /* write num layers and layer sizes */
-  fwrite(&net->numLyr, sizeof(net->numLyr), 1, nfp);
-  for (size_t i = 0; i < net->numLyr; i++) {
-    size_t curLyrSize = net->layers[i].numNrn;
-    if (i != 0 && i != net->numLyr - 1) {
-      curLyrSize--;
-    }
-    fwrite(&curLyrSize, sizeof(curLyrSize), 1, nfp);
-  }
-
-  /* TODO */
-
-  fclose(nfp);
-}
-
-Net_T *FFNN_load(char* netFile) {
-  FILE *nfp = fopen(netFile, "rb");
-  assert(nfp != NULL);
-
-  uint32_t inMagicNum = 0;
-  fread(&inMagicNum, sizeof(inMagicNum), 1, nfp);
-  assert(inMagicNum == MAGICNUM);
-
-  /* read num layers and layer sizes */
-  size_t numLyr = 0;
-  fread(&numLyr, sizeof(numLyr), 1, nfp);
-
-  size_t *topology = malloc(sizeof(size_t) * numLyr);
-  fread(topology, sizeof(size_t), numLyr, nfp);
-
-  Net_T *net = FFNN_init(numLyr, topology);
-  free(topology);
-
-  /* TODO */
-
-  fclose(nfp);
-
   return net;
 }
 
@@ -165,7 +118,7 @@ void FFNN_feedForward(Net_T *net, double *in, double *out) {
   }
 }
 
-void FFNN_train(Net_T *net, TrainSet_T *tSet) {
+void FFNN_train(Net_T *net, TrainSet_T *tSet, FILE *nfp) {
   assert(tSet->numElm != 0 && tSet->lrnRate != 0);
   size_t numEpoch = tSet->numEpoch;
   size_t numElm = tSet->numElm;
@@ -177,10 +130,15 @@ void FFNN_train(Net_T *net, TrainSet_T *tSet) {
       assert(out != NULL);
       FFNN_feedForward(net, tSet->in[j], out);
       cost += FFNN_backprop(net, out, tSet->expOut[j], tSet->lrnRate);
-
       free(out);
     }
     printf("Avg cost of epoch %lu/%lu: %f\n", i, numEpoch - 1, cost/numElm);
+    if (nfp != NULL) {
+      freopen(NULL, "wb", nfp);
+      FFNN_save(net, nfp);
+      fflush(nfp);
+      printf("Saved training state to output file\n");
+    }
   }
   double *testOut = malloc(numOut * sizeof(double));
 
@@ -195,8 +153,67 @@ void FFNN_train(Net_T *net, TrainSet_T *tSet) {
     printf("  %lu) %f\n", i, testOut[i]);
   }
 
+  fclose(nfp);
   free(testOut);
 }
+
+void FFNN_save(Net_T *net, FILE *nfp) {
+  assert(nfp != NULL);
+
+  fwrite(&MAGICNUM, sizeof(MAGICNUM), 1, nfp);
+
+  /* write num layers and layer sizes */
+  fwrite(&net->numLyr, sizeof(net->numLyr), 1, nfp);
+  for (size_t i = 0; i < net->numLyr; i++) {
+    size_t curLyrSize = net->layers[i].numNrn;
+    if (i != 0 && i != net->numLyr - 1) {
+      curLyrSize--;
+    }
+    fwrite(&curLyrSize, sizeof(curLyrSize), 1, nfp);
+  }
+
+  for (size_t i = 0; i < net->numLyr - 1; i++) {
+    for (size_t j = 0; j < net->layers[i].numNrn; j++) {
+      Neuron_T *curNrn = &net->layers[i].neurons[j];
+      for (size_t k = 0; k < curNrn->numWgt; k++) {
+        double *curWgt = &curNrn->weights[k].val;
+        fwrite(curWgt, sizeof(curWgt), 1, nfp);
+      }
+    }
+  }
+}
+
+Net_T *FFNN_load(FILE *nfp) {
+  assert(nfp != NULL);
+
+  uint64_t inMagicNum = 0;
+  fread(&inMagicNum, sizeof(inMagicNum), 1, nfp);
+  assert(inMagicNum == MAGICNUM);
+
+  /* read num layers and layer sizes */
+  size_t numLyr = 0;
+  fread(&numLyr, sizeof(numLyr), 1, nfp);
+
+  size_t *topology = malloc(numLyr * sizeof(size_t));
+  assert(topology != NULL);
+  fread(topology, sizeof(size_t), numLyr, nfp);
+
+  Net_T *net = FFNN_init(numLyr, topology);
+  free(topology);
+
+  for (size_t i = 0; i < net->numLyr - 1; i++) {
+    for (size_t j = 0; j < net->layers[i].numNrn; j++) {
+      Neuron_T *curNrn = &net->layers[i].neurons[j];
+      for (size_t k = 0; k < curNrn->numWgt; k++) {
+        double *curWgt = &curNrn->weights[k].val;
+        fread(curWgt, sizeof(double), 1, nfp);
+      }
+    }
+  }
+
+  return net;
+}
+
 
 void FFNN_print(Net_T *net) {
   printf("%zu layer network:\n", net->numLyr);

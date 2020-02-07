@@ -20,7 +20,9 @@ typedef struct TrainSet {
 
 Net_T *FFNN_init(size_t netSize, size_t *topology);
 void FFNN_feedForward(Net_T *net, double *in, double *out);
-void FFNN_train(Net_T *net, TrainSet_T *tSet);
+void FFNN_train(Net_T *net, TrainSet_T *tSet, FILE *nfp);
+void FFNN_save(Net_T *net, FILE *nfp);
+Net_T *FFNN_load(FILE *nfp);
 void FFNN_print(Net_T *net);
 void FFNN_free(Net_T *net);
 
