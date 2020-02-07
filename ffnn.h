@@ -13,7 +13,7 @@ typedef struct Net Net_T;
 typedef struct TrainSet {
   size_t numEpoch;
   size_t numElm;
-  double learnRate;
+  double lrnRate;
   double **in;
   double **expOut;
 } TrainSet_T;

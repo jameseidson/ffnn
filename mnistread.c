@@ -59,7 +59,7 @@ TrainSet_T *MNIST_prep(ImageData_T *imgDat, Image_T *imgs, size_t numEpoch,
   assert(tSet != NULL);
   tSet->numElm = (numToRead == 0) ? numImg : numToRead;
   tSet->numEpoch = numEpoch;
-  tSet->learnRate = 0.2;
+  tSet->lrnRate = 0.2;
 
   tSet->in = malloc(numImg * sizeof(double *));
   tSet->expOut = malloc(numImg * sizeof(double *));

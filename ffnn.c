@@ -31,6 +31,8 @@ void FFNN_gradDescent(Net_T *, double);
 double FFNN_sig(double);
 double FFNN_dsig(double);
 
+const uint32_t MAGICNUM = 0;
+
 Net_T *FFNN_init(size_t netSize, size_t *topology) {
   /* validate input */
   assert(netSize != 0);
@@ -50,7 +52,7 @@ Net_T *FFNN_init(size_t netSize, size_t *topology) {
     Layer_T *curLyr = &net->layers[i];
     curLyr->numNrn = topology[i];
     /* add extra neuron in layer to be bias */
-    if (i != netSize - 1) {
+    if (i != 0 && i != netSize - 1) {
       curLyr->numNrn++;
     }
 
@@ -62,7 +64,7 @@ Net_T *FFNN_init(size_t netSize, size_t *topology) {
   for (size_t i = 0; i < netSize; i++) {
     for (size_t j = 0; j < net->layers[i].numNrn; j++) {
       Neuron_T *curNrn = &net->layers[i].neurons[j];
-      curNrn->activ = 1.0;
+      curNrn->activ = 1;
       curNrn->curErr = 0.0;
       if (i != netSize - 1) {
         curNrn->numWgt = topology[i + 1];
@@ -85,9 +87,55 @@ Net_T *FFNN_init(size_t netSize, size_t *topology) {
   return net;
 }
 
+void FFNN_save(Net_T *net, char *netFile) {
+  FILE *nfp = fopen(netFile, "wb");
+  assert(nfp != NULL);
+
+  fwrite(&MAGICNUM, sizeof(MAGICNUM), 1, nfp);
+
+  /* write num layers and layer sizes */
+  fwrite(&net->numLyr, sizeof(net->numLyr), 1, nfp);
+  for (size_t i = 0; i < net->numLyr; i++) {
+    size_t curLyrSize = net->layers[i].numNrn;
+    if (i != 0 && i != net->numLyr - 1) {
+      curLyrSize--;
+    }
+    fwrite(&curLyrSize, sizeof(curLyrSize), 1, nfp);
+  }
+
+  /* TODO */
+
+  fclose(nfp);
+}
+
+Net_T *FFNN_load(char* netFile) {
+  FILE *nfp = fopen(netFile, "rb");
+  assert(nfp != NULL);
+
+  uint32_t inMagicNum = 0;
+  fread(&inMagicNum, sizeof(inMagicNum), 1, nfp);
+  assert(inMagicNum == MAGICNUM);
+
+  /* read num layers and layer sizes */
+  size_t numLyr = 0;
+  fread(&numLyr, sizeof(numLyr), 1, nfp);
+
+  size_t *topology = malloc(sizeof(size_t) * numLyr);
+  fread(topology, sizeof(size_t), numLyr, nfp);
+
+  Net_T *net = FFNN_init(numLyr, topology);
+  free(topology);
+
+  /* TODO */
+
+  fclose(nfp);
+
+  return net;
+}
+
 void FFNN_feedForward(Net_T *net, double *in, double *out) {
   /* feed in input data */
-  for (size_t i = 0; i < net->layers[0].numNrn - 1; i++) {
+  for (size_t i = 0; i < net->layers[0].numNrn; i++) {
     net->layers[0].neurons[i].activ = in[i];
   }
 
@@ -118,21 +166,21 @@ void FFNN_feedForward(Net_T *net, double *in, double *out) {
 }
 
 void FFNN_train(Net_T *net, TrainSet_T *tSet) {
-  assert(tSet->numElm != 0);
-  size_t numEpch = tSet->numEpoch;
+  assert(tSet->numElm != 0 && tSet->lrnRate != 0);
+  size_t numEpoch = tSet->numEpoch;
   size_t numElm = tSet->numElm;
   size_t numOut = net->layers[net->numLyr - 1].numNrn;
-  for (size_t i = 0; i < numEpch; i++) {
+  for (size_t i = 0; i < numEpoch; i++) {
     double cost = 0.0;
     for (size_t j = 0; j < numElm; j++) {
       double *out = malloc(numOut * sizeof(double));
       assert(out != NULL);
       FFNN_feedForward(net, tSet->in[j], out);
-      cost += FFNN_backprop(net, out, tSet->expOut[j], tSet->learnRate);
+      cost += FFNN_backprop(net, out, tSet->expOut[j], tSet->lrnRate);
 
       free(out);
     }
-    printf("Avg cost of epoch %lu/%lu: %f\n", i, numEpch - 1, cost/numElm);
+    printf("Avg cost of epoch %lu/%lu: %f\n", i, numEpoch - 1, cost/numElm);
   }
   double *testOut = malloc(numOut * sizeof(double));
 
@@ -153,11 +201,12 @@ void FFNN_train(Net_T *net, TrainSet_T *tSet) {
 void FFNN_print(Net_T *net) {
   printf("%zu layer network:\n", net->numLyr);
   for (size_t i = 0; i < net->numLyr; i++) {
-    printf("  layer %zu\n", i);
+    printf("  layer %zu:\n", i);
     for (size_t j = 0; j < net->layers[i].numNrn; j++) {
-    printf("    neuron %zu weights\n      ", j);
-      for (size_t k = 0; k < net->layers[i].neurons[j].numWgt; k++) {
-        printf("[%.2f] ", net->layers[i].neurons[j].weights[k].val);
+    Neuron_T *curNrn = &net->layers[i].neurons[j];
+    printf("    neuron %zu (activ: %.2f) weights:\n      ", j, curNrn->activ);
+      for (size_t k = 0; k < curNrn->numWgt; k++) {
+        printf("[%.2f] ", curNrn->weights[k].val);
       }
     printf("\n");
     }
@@ -179,7 +228,7 @@ void FFNN_free(Net_T *net) {
 }
 
 double FFNN_backprop(Net_T *net, const double *out, const double *expOut,
-                     double learnRate) {
+                     double lrnRate) {
   /* calculate error of output layer */
   Layer_T *lastLyr = &net->layers[net->numLyr - 1];
   for (size_t i = 0; i < lastLyr->numNrn; i++) {
@@ -200,7 +249,7 @@ double FFNN_backprop(Net_T *net, const double *out, const double *expOut,
     }
   }
 
-  FFNN_gradDescent(net, learnRate);
+  FFNN_gradDescent(net, lrnRate);
 
   /* sum error of output layer */
   double totalErr = 0.0;
@@ -211,14 +260,14 @@ double FFNN_backprop(Net_T *net, const double *out, const double *expOut,
   return totalErr;
 }
 
-void FFNN_gradDescent(Net_T *net, double learnRate) {
+void FFNN_gradDescent(Net_T *net, double lrnRate) {
   /* adjust weights */
   for (size_t i = 0; i < net->numLyr - 1; i++) {
     for (size_t j = 0; j < net->layers[i].numNrn; j++) {
       Neuron_T *curNrn = &net->layers[i].neurons[j];
       for (size_t k = 0; k < curNrn->numWgt; k++) {
         Neuron_T *nxtNrn = curNrn->weights[k].next;
-        curNrn->weights[k].val += learnRate * nxtNrn->curErr * curNrn->activ
+        curNrn->weights[k].val += lrnRate * nxtNrn->curErr * curNrn->activ
                                   * FFNN_dsig(nxtNrn->activ);
       }
     }
