@@ -11,15 +11,17 @@ int main(int argc, char **argv) {
   }
 
   Image_T *imgs = NULL;
-  FILE *nfp = fopen("mnist.ffnn", "wb");
+  FILE *mnist = fopen("mnist.ffnn", "rb");
 
   ImageData_T imgDat = MNIST_read(&imgs, argv[1], argv[2]);
-  TrainSet_T *tSet = MNIST_prep(&imgDat, imgs, 1000, 0);
+  TrainSet_T *tSet = MNIST_prep(&imgDat, imgs, 10000000, 0);
 
-  
   size_t topology[] = { imgDat.numRow * imgDat.numCol, 300, 10 };
+  (void)topology;
 
-  Net_T *network = FFNN_init(3, topology);
+  Net_T *network = FFNN_load(mnist);
+
+  FILE *nfp = fopen("mnist.ffnn", "rb");
   FFNN_train(network, tSet, nfp);
 
 
