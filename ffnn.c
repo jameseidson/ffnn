@@ -35,7 +35,7 @@ const uint64_t MAGICNUM = 0x5CAFC570;
 
 Net_T *FFNN_init(size_t netSize, size_t *topology) {
   /* validate input */
-  assert(netSize != 0);
+  assert(netSize > 0 && topology != NULL);
   for (size_t i = 0; i < netSize; i++) {
     assert(topology[i] != 0);
   }
@@ -87,6 +87,7 @@ Net_T *FFNN_init(size_t netSize, size_t *topology) {
 }
 
 void FFNN_feedForward(Net_T *net, double *in, double *out) {
+  assert(net != NULL in != NULL && out != NULL);
   /* feed in input data */
   for (size_t i = 0; i < net->layers[0].numNrn; i++) {
     net->layers[0].neurons[i].activ = in[i];
@@ -119,10 +120,13 @@ void FFNN_feedForward(Net_T *net, double *in, double *out) {
 }
 
 void FFNN_train(Net_T *net, TrainSet_T *tSet, FILE *nfp) {
+  assert(net != NULL && tSet != NULL);
   assert(tSet->numElm != 0 && tSet->lrnRate != 0);
+
   size_t numEpoch = tSet->numEpoch;
   size_t numElm = tSet->numElm;
   size_t numOut = net->layers[net->numLyr - 1].numNrn;
+
   for (size_t i = 0; i < numEpoch; i++) {
     double cost = 0.0;
     for (size_t j = 0; j < numElm; j++) {
@@ -158,7 +162,7 @@ void FFNN_train(Net_T *net, TrainSet_T *tSet, FILE *nfp) {
 }
 
 void FFNN_save(Net_T *net, FILE *nfp) {
-  assert(nfp != NULL);
+  assert(net != NULL && nfp != NULL);
 
   fwrite(&MAGICNUM, sizeof(MAGICNUM), 1, nfp);
 
@@ -214,8 +218,23 @@ Net_T *FFNN_load(FILE *nfp) {
   return net;
 }
 
+void FFNN_free(Net_T *net) {
+  assert(net != NULL);
+  for (size_t i = 0; i < net->numLyr; i++) {
+    Layer_T *curLyr = &net->layers[i];
+    for (size_t j = 0; j < curLyr->numNrn; j++) {
+      if (i != net->numLyr - 1) {
+        free(curLyr->neurons[j].weights);
+      }
+    }
+    free(curLyr->neurons);
+  }
+  free(net->layers);
+  free(net);
+}
 
 void FFNN_print(Net_T *net) {
+  assert(net != NULL);
   printf("%zu layer network:\n", net->numLyr);
   for (size_t i = 0; i < net->numLyr; i++) {
     printf("  layer %zu:\n", i);
@@ -228,20 +247,6 @@ void FFNN_print(Net_T *net) {
     printf("\n");
     }
   }
-}
-
-void FFNN_free(Net_T *net) {
-  for (size_t i = 0; i < net->numLyr; i++) {
-    Layer_T *curLyr = &net->layers[i];
-    for (size_t j = 0; j < curLyr->numNrn; j++) {
-      if (i != net->numLyr - 1) {
-        free(curLyr->neurons[j].weights);
-      }
-    }
-    free(curLyr->neurons);
-  }
-  free(net->layers);
-  free(net);
 }
 
 double FFNN_backprop(Net_T *net, const double *out, const double *expOut,

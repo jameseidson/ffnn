@@ -9,7 +9,7 @@ git clone https://github.com/jameseidson/ffnn.git
 Then `#include "/ffnn/ffnn.h"` in your program.
 
 ### Initialization
-Networks are created from scratch using `Net_T *FFNN_init(size_t netSize, size_t *topology)`.
+Networks can be created using `Net_T *FFNN_init(size_t netSize, size_t *topology)`.
 ```
 size_t topology[NUM_LYR] = { NUM_IN, NUM_HIDDEN, NUM_OUT };
 Net_T *myNet = FFNN_init(NUM_LYR, topology);
@@ -67,6 +67,26 @@ void FFNN_train(myNet, tSet, *rfp);
 This example loads `myNet` from `MyNet.ffnn`, trains it, and writes its training progress back to the original file.
 
 Note that the user is responsible for mallocing and thus freeing the `TrainSet_T` and all associated memory.
+
+### Classifying Non-Training Data
+ffnn, rather unsurprisingly, uses the feed forward algorithm to classify new inputs. 
+The function `void FFNN_feedForward(Net_T *net, double *in, double *out)` passes an array of inputs (`*in`) into `net` and overwrites `*out` with the activations of each output neuron.
+```
+FFNN_feedForward(net, tSet->in[0], testOut);
+
+printf("Training complete! Testing output...\n");
+printf("Expected:\n");
+for (size_t i = 0; i < numOut; i++) {
+  printf("  %lu) %f\n", i, tSet->expOut[0][i]);
+}
+printf("Actual:\n");
+for (size_t i = 0; i < numOut; i++) {
+  printf("  %lu) %f\n", i, testOut[i]);
+}
+```
+This example comes from `FFNN_train` defined earlier- it prints a quick test of the network's accuracy on the 0th element of the training set. 
+After the function call, `testOut` holds the network's output values for this element.
+Naturally, it is useful to compare this with the expected output (stored in `tSet->expOut[0]`) to get an idea of how well the network is performing.
 
 ## MNIST Reader 
 Included with the library is an example implementation based on the [MNIST database of handwritten images](http://yann.lecun.com/exdb/mnist/). 
