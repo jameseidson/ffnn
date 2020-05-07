@@ -15,8 +15,7 @@ struct Layer {
 };
 
 struct Neuron {
-  double activ;
-  double curErr;
+  double activ; double curErr;
   size_t numWgt;
   Weight_T *weights;
 };
@@ -87,7 +86,7 @@ Net_T *FFNN_init(size_t netSize, size_t *topology) {
 }
 
 void FFNN_feedForward(Net_T *net, double *in, double *out) {
-  assert(net != NULL in != NULL && out != NULL);
+  assert(net != NULL && in != NULL && out != NULL);
   /* feed in input data */
   for (size_t i = 0; i < net->layers[0].numNrn; i++) {
     net->layers[0].neurons[i].activ = in[i];
