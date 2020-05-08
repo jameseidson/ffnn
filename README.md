@@ -93,5 +93,5 @@ Included with the library is an example implementation based on the [MNIST datab
 
 `mnistreader` provides the necessary functions to read the data from the binary MNIST files, put them into a format readable by the network, then train the network based on that data. 
 
-The provided network savefile, `mnist.ffnn`, contains a network with 300 hidden layers that achieved 11.5% error while training.
+The provided network savefile, `mnist.ffnn`, contains a network with 300 hidden layers that achieved 7.4% error while training.
 By default, `main.c` loads this file and continues training from the user-specified MNIST files.
