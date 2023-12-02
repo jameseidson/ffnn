@@ -1,6 +1,6 @@
 # ffnn
 ffnn is a small and simple feed forward neural network library written in C.
-It uses backpropogation and gradient descent to train user-defined networks based on user-defined data, and even features a filesystem for saving and loading training progress.
+It uses backpropogation and gradient descent to train user-defined networks based on user-defined data, and even features a custom binary file format for saving and loading training progress.
 
 ## Usage
 ```
